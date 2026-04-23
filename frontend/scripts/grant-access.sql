@@ -1,7 +1,7 @@
 -- Este comando debe ejecutarse en el servidor MySQL (192.168.0.45)
 -- Crear usuario y dar permisos para conectar desde cualquier host
 
-CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY 'Rinrin0013#';
+CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED BY '';
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 
