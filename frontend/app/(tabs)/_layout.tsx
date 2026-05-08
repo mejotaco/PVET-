@@ -53,10 +53,7 @@ export default function TabsLayout() {
           paddingTop: 10,
           paddingBottom: 10,
           // Refined shadow system
-          shadowColor: isDark ? '#000' : '#1A1A2E',
-          shadowOffset: { width: 0, height: 12 },
-          shadowOpacity: isDark ? 0.5 : 0.14,
-          shadowRadius: 28,
+          boxShadow: isDark ? '0 12px 28px rgba(0,0,0,0.5)' : '0 12px 28px rgba(26,26,46,0.14)',
           elevation: 20,
         },
         tabBarActiveTintColor: colors.primary,

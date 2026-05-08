@@ -45,10 +45,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxHeight: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
+    boxShadow: '0 12px 24px rgba(0,0,0,0.6)',
     elevation: 20,
   },
   header: {

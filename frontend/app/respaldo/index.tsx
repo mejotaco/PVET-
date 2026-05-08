@@ -139,7 +139,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Decorative icon — absolute, right side */}
-            <View style={styles.darkCardDecor} pointerEvents="none">
+            <View style={[styles.darkCardDecor, { pointerEvents: 'none' as const }]}>
               <Ionicons name="paw" size={64} color="rgba(255,255,255,0.06)" />
             </View>
           </View>

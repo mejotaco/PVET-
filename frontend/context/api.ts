@@ -1,4 +1,5 @@
-const API_TIMEOUT = 10000
+const API_TIMEOUT = 3000
+const DISCOVERY_TIMEOUT = 2000
 
 interface ServerInfo {
   ip: string
@@ -9,11 +10,26 @@ interface ServerInfo {
 
 class APIClient {
   private baseUrl: string | null = null
-  private discoveryUrls = [
-    'http://localhost:4000',
-    'http://127.0.0.1:4000',
-    'http://192.168.0.45:4000',
-  ]
+  private discoveryUrls = this.buildDiscoveryUrls()
+
+  private buildDiscoveryUrls(): string[] {
+    const urls = [
+      'http://localhost:4000',
+      'http://127.0.0.1:4000',
+    ]
+    const commonIPs = [
+      '192.168.100.9',
+      '192.168.100.10',
+      '192.168.1.100',
+      '192.168.0.100',
+      '192.168.1.45',
+      '192.168.0.45',
+    ]
+    for (const ip of commonIPs) {
+      urls.push(`http://${ip}:4000`)
+    }
+    return urls
+  }
 
   private async fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
     const controller = new AbortController()
@@ -25,25 +41,47 @@ class APIClient {
     }
   }
 
+  private async tryUrl(url: string): Promise<string | null> {
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), DISCOVERY_TIMEOUT)
+      const res = await fetch(`${url}/api/info`, { signal: controller.signal })
+      clearTimeout(timeout)
+      if (res.ok) {
+        const data: ServerInfo = await res.json()
+        return data.baseUrl || url
+      }
+    } catch {}
+    return null
+  }
+
   async discover(): Promise<string> {
     if (this.baseUrl) return this.baseUrl
 
-    for (const url of this.discoveryUrls) {
-      try {
-        const res = await this.fetchWithTimeout(`${url}/api/info`)
-        if (res.ok) {
-          const data: ServerInfo = await res.json()
-          this.baseUrl = data.baseUrl
-          console.log('[API] Conectado a:', this.baseUrl)
-          return this.baseUrl
-        }
-      } catch {
-        // Intentar siguiente URL
+    const results = await Promise.all(
+      this.discoveryUrls.map(url => this.tryUrl(url))
+    )
+    for (const result of results) {
+      if (result) {
+        this.baseUrl = result
+        console.log('[API] Conectado a:', this.baseUrl)
+        return this.baseUrl
       }
     }
 
     this.baseUrl = this.discoveryUrls[0]
+    console.warn('[API] No se encontró servidor, usando:', this.baseUrl)
     return this.baseUrl
+  }
+
+  async isConnected(): Promise<boolean> {
+    try {
+      const base = await this.discover()
+      const res = await this.fetchWithTimeout(`${base}/api/info`)
+      return res.ok
+    } catch {
+      return false
+    }
   }
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {

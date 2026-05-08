@@ -19,30 +19,21 @@ export default function Card({ children, style, onPress, glow, variant = 'defaul
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.glassBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: isDark ? 4 : 2 },
-      shadowOpacity: isDark ? 0.25 : 0.08,
-      shadowRadius: isDark ? 8 : 6,
+      boxShadow: isDark ? '0 4px 8px rgba(0,0,0,0.25)' : '0 2px 6px rgba(0,0,0,0.08)',
       elevation: isDark ? 4 : 2,
     },
     elevated: {
       backgroundColor: colors.surfaceElevated,
       borderWidth: 1,
       borderColor: colors.glassBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: isDark ? 8 : 4 },
-      shadowOpacity: isDark ? 0.4 : 0.1,
-      shadowRadius: isDark ? 16 : 10,
+      boxShadow: isDark ? '0 8px 16px rgba(0,0,0,0.4)' : '0 4px 10px rgba(0,0,0,0.1)',
       elevation: isDark ? 8 : 4,
     },
     glass: {
       backgroundColor: colors.glass,
       borderWidth: 1,
       borderColor: colors.glassBorder,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: isDark ? 0.15 : 0.05,
-      shadowRadius: 6,
+      boxShadow: isDark ? '0 2px 6px rgba(0,0,0,0.15)' : '0 2px 6px rgba(0,0,0,0.05)',
       elevation: 2,
     },
     outline: {
@@ -54,10 +45,7 @@ export default function Card({ children, style, onPress, glow, variant = 'defaul
 
   const glowStyle: ViewStyle = glow ? {
     borderColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
+    boxShadow: `0 0 14px ${colors.primary}59`,
     elevation: 10,
   } : {}
 

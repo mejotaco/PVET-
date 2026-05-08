@@ -19,10 +19,7 @@ export default function Button({ children, onPress, variant = 'primary', size = 
   const variantStyles: Record<string, ViewStyle> = {
     primary: {
       backgroundColor: colors.primary,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 8,
+      boxShadow: `0 4px 8px ${colors.primary}59`,
       elevation: 4,
     },
     secondary: {
