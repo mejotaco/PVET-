@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
+import { Alert, ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import Button from '../../components/Button'
-import Card from '../../components/Card'
 import { FInput, FSelect, FTextarea } from '../../components/FormField'
 import Modal from '../../components/Modal'
 import { PET_COLORS, RADIUS, SPECIES_EMOJI } from '../../constants/theme'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useApp } from '../../context/AppContext'
 import { useTheme } from '../../hooks/useTheme'
 
@@ -14,17 +14,20 @@ const SPECIES_OPTS = SPECIES.map(s => ({ label: `${SPECIES_EMOJI[s]} ${s}`, valu
 const EF = { name: '', species: 'Perro', breed: '', age: '', weight: '', colorTheme: '#FF7A2F', notes: '', microchip: '' }
 
 export default function PetsScreen() {
-  const { pets, addPet, updatePet, deletePet } = useApp()
+  const { pets, appointments, addPet, updatePet, deletePet } = useApp()
   const { colors } = useTheme()
+  const insets = useSafeAreaInsets()
   const [showModal, setShowModal] = useState(false)
   const [edit, setEdit] = useState<any>(null)
   const [form, setForm] = useState<any>(EF)
   const [detail, setDetail] = useState<any>(null)
   const [search, setSearch] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState<number | null>(null)
 
   const filtered = pets.filter((p: any) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.species.toLowerCase().includes(search.toLowerCase())
+    p.species?.toLowerCase().includes(search.toLowerCase())
   )
 
   const f = (k: string) => ({
@@ -34,17 +37,54 @@ export default function PetsScreen() {
 
   const openAdd = () => { setEdit(null); setForm(EF); setShowModal(true) }
   const openEdit = (pet: any) => { setEdit(pet); setForm({ ...EF, ...pet }); setShowModal(true) }
-  const submit = () => {
-    if (!form.name || !form.species) return
-    edit ? updatePet(edit.id, form) : addPet(form)
-    setShowModal(false)
+
+  const confirmDelete = (pet: any) => {
+    Alert.alert(
+      'Eliminar mascota',
+      `¿Estás seguro de eliminar a ${pet.name}? Se eliminarán también sus citas e historial médico.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(pet.id)
+            try {
+              await deletePet(pet.id)
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'No se pudo eliminar')
+            } finally {
+              setDeleting(null)
+            }
+          }
+        },
+      ]
+    )
   }
+
+  const submit = async () => {
+    if (!form.name || !form.species) return
+    setSubmitting(true)
+    try {
+      if (edit) {
+        await updatePet(edit.id, form)
+      } else {
+        await addPet(form)
+      }
+      setShowModal(false)
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'No se pudo guardar. Revisa la conexión con el servidor.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const getPetAppointments = (petId: number) =>
+    appointments.filter((a: any) => a.petId === petId)
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <View style={[styles.header, { borderBottomColor: colors.glassBorder }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: colors.glassBorder }]}>
         <View>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Mis Mascotas</Text>
           <Text style={[styles.headerSub, { color: colors.textMuted }]}>
@@ -60,7 +100,6 @@ export default function PetsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Search bar ─────────────────────────────────────────────────────── */}
       <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}>
         <Ionicons name="search-outline" size={16} color={colors.textMuted} />
         <TextInput
@@ -105,9 +144,9 @@ export default function PetsScreen() {
           </View>
         ) : filtered.map((pet: any) => {
           const accent = pet.colorTheme || colors.primary
-          const vaccineCount = pet.vaccines?.length || 0
+          const petAppts = getPetAppointments(pet.id)
+          const hasUpcoming = petAppts.some((a: any) => a.status === 'scheduled')
           const today = new Date().toISOString().split('T')[0]
-          const hasOverdue = pet.vaccines?.some((v: any) => v.nextDate && v.nextDate < today)
 
           return (
             <TouchableOpacity
@@ -116,19 +155,12 @@ export default function PetsScreen() {
               activeOpacity={0.82}
               style={[styles.petCard, { backgroundColor: colors.surface, borderColor: colors.glassBorder }]}
             >
-              {/* Accent stripe */}
               <View style={[styles.petCardStripe, { backgroundColor: accent }]} />
 
               <View style={styles.petCardInner}>
-                {/* Top row */}
                 <View style={styles.petCardTop}>
                   <View style={[styles.petAvatar, { backgroundColor: accent + '20' }]}>
                     <Text style={{ fontSize: 30 }}>{SPECIES_EMOJI[pet.species] || '🐾'}</Text>
-                    {hasOverdue && (
-                      <View style={[styles.overdueIndicator, { backgroundColor: '#FF6B6B', borderColor: colors.surface }]}>
-                        <Text style={{ fontSize: 8, color: '#fff' }}>!</Text>
-                      </View>
-                    )}
                   </View>
 
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -148,15 +180,18 @@ export default function PetsScreen() {
                       <Ionicons name="pencil-outline" size={14} color={colors.primary} />
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() => deletePet(pet.id)}
+                      onPress={() => confirmDelete(pet)}
                       style={[styles.iconBtn, { backgroundColor: '#FF6B6B15', borderColor: '#FF6B6B30' }]}
                     >
-                      <Ionicons name="trash-outline" size={14} color="#FF6B6B" />
+                      {deleting === pet.id ? (
+                        <ActivityIndicator size="small" color="#FF6B6B" />
+                      ) : (
+                        <Ionicons name="trash-outline" size={14} color="#FF6B6B" />
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                {/* Info chips */}
                 <View style={styles.chipRow}>
                   {pet.age ? (
                     <InfoChip icon="gift-outline" label={`${pet.age} años`} color={accent} colors={colors} />
@@ -164,15 +199,9 @@ export default function PetsScreen() {
                   {pet.weight ? (
                     <InfoChip icon="scale-outline" label={`${pet.weight} kg`} color={colors.textMuted} colors={colors} />
                   ) : null}
-                  {vaccineCount > 0 ? (
-                    <InfoChip
-                      icon="shield-checkmark-outline"
-                      label={`${vaccineCount} vacuna${vaccineCount !== 1 ? 's' : ''}`}
-                      color={hasOverdue ? '#FF6B6B' : colors.success}
-                      colors={colors}
-                      highlight
-                    />
-                  ) : null}
+                  {hasUpcoming && (
+                    <InfoChip icon="calendar-outline" label="Cita próx." color={colors.primary} colors={colors} highlight />
+                  )}
                   {pet.microchip ? (
                     <InfoChip icon="radio-button-on-outline" label="Microchip" color={colors.amber} colors={colors} />
                   ) : null}
@@ -183,7 +212,6 @@ export default function PetsScreen() {
         })}
       </ScrollView>
 
-      {/* ── Add / Edit Modal ────────────────────────────────────────────────── */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={edit ? 'Editar Mascota' : 'Registrar Mascota'}>
         <View style={{ gap: 12 }}>
           <FInput label="Nombre" required placeholder="Ej: Luna" {...f('name')} />
@@ -218,18 +246,16 @@ export default function PetsScreen() {
           <FTextarea label="Notas" placeholder="Alergias, condiciones especiales, alimentación..." {...f('notes')} />
           <View style={styles.modalButtons}>
             <Button variant="secondary" onPress={() => setShowModal(false)}>Cancelar</Button>
-            <Button onPress={submit} disabled={!form.name || !form.species}>
-              {edit ? 'Guardar cambios' : 'Registrar'}
+            <Button onPress={submit} disabled={!form.name || !form.species || submitting}>
+              {submitting ? <ActivityIndicator size="small" color="#fff" /> : edit ? 'Guardar cambios' : 'Registrar'}
             </Button>
           </View>
         </View>
       </Modal>
 
-      {/* ── Detail Modal ────────────────────────────────────────────────────── */}
       <Modal isOpen={!!detail} onClose={() => setDetail(null)} title="Perfil de mascota">
         {detail && (
           <View>
-            {/* Hero section */}
             <View style={[styles.detailHero, { backgroundColor: (detail.colorTheme || colors.primary) + '12', borderColor: (detail.colorTheme || colors.primary) + '25' }]}>
               <View style={[styles.detailAvatar, { backgroundColor: (detail.colorTheme || colors.primary) + '25' }]}>
                 <Text style={{ fontSize: 44 }}>{SPECIES_EMOJI[detail.species] || '🐾'}</Text>
@@ -240,7 +266,6 @@ export default function PetsScreen() {
               </Text>
             </View>
 
-            {/* Stats grid */}
             <View style={styles.detailGrid}>
               {[
                 { icon: '🎂', label: 'Edad', value: detail.age ? `${detail.age} años` : '—' },
@@ -270,7 +295,7 @@ export default function PetsScreen() {
               <Button variant="secondary" onPress={() => { setDetail(null); openEdit(detail) }}>
                 Editar
               </Button>
-              <Button variant="danger" onPress={() => { deletePet(detail.id); setDetail(null) }}>
+              <Button variant="danger" onPress={() => { confirmDelete(detail); setDetail(null) }}>
                 Eliminar
               </Button>
             </View>
@@ -297,7 +322,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16, borderBottomWidth: 1,
+    paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
   headerSub:   { fontSize: 12, marginTop: 3 },
@@ -305,20 +330,17 @@ const styles = StyleSheet.create({
   searchWrap:  { flexDirection: 'row', alignItems: 'center', gap: 10, margin: 16, marginTop: 14, borderWidth: 1, borderRadius: RADIUS.sm, paddingHorizontal: 14, paddingVertical: 12 },
   searchInput: { flex: 1, fontSize: 14 },
   clearBtn:    { padding: 2 },
-  // Empty
   emptyCard:      { alignItems: 'center', padding: 48, marginTop: 10, borderRadius: RADIUS.lg, borderWidth: 1, gap: 10 },
   emptyIconBox:   { width: 72, height: 72, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle:     { fontSize: 18, fontWeight: '800' },
   emptyText:      { fontSize: 13, textAlign: 'center', lineHeight: 20 },
   emptyAction:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 11, borderRadius: 12, marginTop: 8 },
   emptyActionText:{ color: '#fff', fontWeight: '700', fontSize: 14 },
-  // Pet card
   petCard:        { marginBottom: 12, borderRadius: RADIUS.md, borderWidth: 1, overflow: 'hidden', flexDirection: 'row' },
   petCardStripe:  { width: 4 },
   petCardInner:   { flex: 1, padding: 14 },
   petCardTop:     { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 },
   petAvatar:      { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  overdueIndicator: { position: 'absolute', top: -3, right: -3, width: 14, height: 14, borderRadius: 7, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
   petName:        { fontSize: 16, fontWeight: '800', letterSpacing: -0.3, marginBottom: 2 },
   petSpecies:     { fontSize: 12 },
   petCardActions: { flexDirection: 'row', gap: 7 },
@@ -326,13 +348,11 @@ const styles = StyleSheet.create({
   chipRow:        { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip:           { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 4 },
   chipText:       { fontSize: 11, fontWeight: '600' },
-  // Form
   row:            { flexDirection: 'row' },
   colorLabel:     { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
   colorRow:       { flexDirection: 'row', gap: 8 },
   colorDot:       { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   modalButtons:   { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 8 },
-  // Detail
   detailHero:   { alignItems: 'center', padding: 24, borderRadius: RADIUS.md, borderWidth: 1, marginBottom: 16, gap: 8 },
   detailAvatar: { width: 80, height: 80, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   detailName:   { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },

@@ -1,5 +1,22 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import Constants from 'expo-constants'
+
 const API_TIMEOUT = 3000
 const DISCOVERY_TIMEOUT = 2000
+const CACHE_KEY = 'pvet_server_url'
+const PORT = 4000
+
+function getDeviceSubnet(): string | null {
+  try {
+    const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost
+    if (hostUri) {
+      const ip = hostUri.split(':')[0]
+      const parts = ip.split('.')
+      if (parts.length === 4) return parts.slice(0, 3).join('.')
+    }
+  } catch {}
+  return null
+}
 
 interface ServerInfo {
   ip: string
@@ -10,25 +27,60 @@ interface ServerInfo {
 
 class APIClient {
   private baseUrl: string | null = null
-  private discoveryUrls = this.buildDiscoveryUrls()
 
   private buildDiscoveryUrls(): string[] {
-    const urls = [
+    const urls: string[] = [
       'http://localhost:4000',
       'http://127.0.0.1:4000',
     ]
-    const commonIPs = [
-      '192.168.100.9',
-      '192.168.100.10',
-      '192.168.1.100',
-      '192.168.0.100',
-      '192.168.1.45',
-      '192.168.0.45',
-    ]
-    for (const ip of commonIPs) {
-      urls.push(`http://${ip}:4000`)
+    const deviceSubnet = getDeviceSubnet()
+    const subnets: string[] = []
+    if (deviceSubnet) {
+      subnets.push(deviceSubnet)
+      urls.push(`http://${deviceSubnet}.1:${PORT}`)
+      urls.push(`http://${deviceSubnet}.100:${PORT}`)
+      urls.push(`http://${deviceSubnet}.150:${PORT}`)
+      urls.push(`http://${deviceSubnet}.200:${PORT}`)
+      urls.push(`http://${deviceSubnet}.254:${PORT}`)
+    }
+    subnets.push('192.168.0', '192.168.1', '192.168.100', '10.0.0')
+    const commonHosts = [1, 100, 101, 102, 150, 200, 201, 250, 254]
+    for (const subnet of subnets) {
+      for (const host of commonHosts) {
+        urls.push(`http://${subnet}.${host}:${PORT}`)
+      }
+    }
+    for (const subnet of subnets) {
+      for (let i = 1; i <= 254; i++) {
+        urls.push(`http://${subnet}.${i}:${PORT}`)
+      }
     }
     return urls
+  }
+
+  private async loadCachedUrl(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(CACHE_KEY)
+    } catch {
+      return null
+    }
+  }
+
+  private async saveCachedUrl(url: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(CACHE_KEY, url)
+    } catch {}
+  }
+
+  async setBaseUrl(url: string): Promise<void> {
+    this.baseUrl = url
+    await this.saveCachedUrl(url)
+  }
+
+  async clearCachedUrl(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(CACHE_KEY)
+    } catch {}
   }
 
   private async fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
@@ -55,21 +107,56 @@ class APIClient {
     return null
   }
 
+  private tryAny(urls: string[], batchSize = 50): Promise<string | null> {
+    return new Promise((resolve) => {
+      let index = 0
+      let found = false
+      const nextBatch = () => {
+        if (found) return
+        const batch = urls.slice(index, index + batchSize)
+        if (batch.length === 0) return resolve(null)
+        index += batchSize
+        let pending = batch.length
+        for (const url of batch) {
+          this.tryUrl(url).then((result) => {
+            if (found) return
+            if (result) {
+              found = true
+              resolve(result)
+              return
+            }
+            pending--
+            if (pending === 0) nextBatch()
+          })
+        }
+      }
+      nextBatch()
+    })
+  }
+
   async discover(): Promise<string> {
     if (this.baseUrl) return this.baseUrl
 
-    const results = await Promise.all(
-      this.discoveryUrls.map(url => this.tryUrl(url))
-    )
-    for (const result of results) {
+    const cached = await this.loadCachedUrl()
+    if (cached) {
+      const result = await this.tryUrl(cached)
       if (result) {
         this.baseUrl = result
-        console.log('[API] Conectado a:', this.baseUrl)
+        console.log('[API] Conectado a (cache):', this.baseUrl)
         return this.baseUrl
       }
     }
 
-    this.baseUrl = this.discoveryUrls[0]
+    const urls = this.buildDiscoveryUrls()
+    const result = await this.tryAny(urls)
+    if (result) {
+      this.baseUrl = result
+      await this.saveCachedUrl(result)
+      console.log('[API] Conectado a:', this.baseUrl)
+      return this.baseUrl
+    }
+
+    this.baseUrl = 'http://localhost:4000'
     console.warn('[API] No se encontró servidor, usando:', this.baseUrl)
     return this.baseUrl
   }
@@ -203,6 +290,19 @@ class APIClient {
 
   async toggleMedication(id: number) {
     return this.request<any>(`/api/medications/${id}/toggle`, { method: 'PATCH' })
+  }
+
+  // ─── Perfil de usuario ─────────────────────────────────────
+
+  async getProfile() {
+    return this.request<any | null>('/api/users')
+  }
+
+  async updateProfile(id: number, data: { name?: string; email?: string; phone?: string; notes?: string }) {
+    return this.request<any>(`/api/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
   }
 }
 

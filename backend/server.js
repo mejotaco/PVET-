@@ -137,9 +137,28 @@ async function initDB() {
       ) ENGINE=InnoDB
     `)
 
-    console.log('✅ Base de datos pvet_db lista')
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id          INT          AUTO_INCREMENT PRIMARY KEY,
+        name        VARCHAR(100) NOT NULL,
+        email       VARCHAR(150),
+        phone       VARCHAR(20),
+        notes       TEXT,
+        createdAt   DATETIME     DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB
+    `)
+
+    const [existing] = await conn.query('SELECT id FROM users LIMIT 1')
+    if (existing.length === 0) {
+      await conn.query(
+        `INSERT INTO users (name, email) VALUES (?, ?)`,
+        ['Juan García', 'juan@ejemplo.com']
+      )
+    }
+
+    console.log(' Base de datos pvet_db lista')
   } catch (err) {
-    console.error('❌ Error en initDB:', err)
+    console.error(' Error en initDB:', err)
     throw err
   } finally {
     if (conn) conn.release()
@@ -334,14 +353,36 @@ app.patch('/api/medications/:id/toggle', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
+// ─── PERFIL DE USUARIO ─────────────────────────────────────
+
+app.get('/api/users', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM users ORDER BY id ASC LIMIT 1')
+    if (rows.length === 0) return res.json(null)
+    res.json(rows[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+app.put('/api/users/:id', async (req, res) => {
+  try {
+    const r = req.body
+    await pool.query(
+      `UPDATE users SET name=?, email=?, phone=?, notes=? WHERE id=?`,
+      [r.name, r.email, r.phone || null, r.notes || null, req.params.id]
+    )
+    const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [req.params.id])
+    res.json(rows[0])
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // ─── INICIO ─────────────────────────────────────────────────
 
 initDB()
   .then(() => {
     const serverIP = process.env.HOST_IP || getLocalIP()
     app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 API en http://localhost:${PORT}`)
-      console.log(`📱 Accede desde la red: http://${serverIP}:${PORT}`)
+      console.log(`  http://localhost:${PORT}`)
+      console.log(` http://${serverIP}:${PORT}`)
     })
   })
   .catch(err => {

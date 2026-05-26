@@ -5,36 +5,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { DARK, LIGHT } from '../../constants/theme'
 
 const TAB_CONFIG = [
-  { name: 'index',        icon: 'home',     iconOut: 'home-outline',     label: 'Inicio'  },
-  { name: 'pets',         icon: 'paw',      iconOut: 'paw-outline',      label: 'Mascotas'},
-  { name: 'appointments', icon: 'calendar', iconOut: 'calendar-outline', label: 'Citas'   },
-  { name: 'health',       icon: 'medkit',   iconOut: 'medkit-outline',   label: 'Salud'   },
-  { name: 'settings',     icon: 'settings', iconOut: 'settings-outline', label: 'Config'  },
+  { name: 'index',        icon: 'home',                label: 'Inicio'   },
+  { name: 'pets',         icon: 'paw',                 label: 'Mascotas' },
+  { name: 'appointments', icon: 'calendar',            label: 'Citas'    },
+  { name: 'health',       icon: 'medkit',              label: 'Salud'    },
+  { name: 'chat',         icon: 'chatbubble-ellipses', label: 'Chat'     },
+  { name: 'settings',     icon: 'settings',            label: 'Config'   },
 ]
-
-function TabIcon({
-  name, focused, colors, label,
-}: {
-  name: any; focused: boolean; colors: typeof LIGHT; label: string
-}) {
-  return (
-    <View style={[styles.iconWrapper, focused && { backgroundColor: colors.primary + '1A' }]}>
-      <Ionicons
-        name={name}
-        size={20}
-        color={focused ? colors.primary : colors.textMuted}
-      />
-      {focused && (
-        <View style={[styles.activeDot, { backgroundColor: colors.primary }]} />
-      )}
-    </View>
-  )
-}
 
 export default function TabsLayout() {
   const scheme = useColorScheme()
   const colors  = scheme === 'dark' ? DARK : LIGHT
-  const isDark  = scheme === 'dark'
   const insets  = useSafeAreaInsets()
 
   return (
@@ -43,35 +24,36 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarStyle: {
-          position: 'absolute',
-          bottom: insets.bottom > 0 ? insets.bottom + 4 : 14,
-          marginHorizontal: 20,
           backgroundColor: colors.surface,
-          borderTopWidth: 0,
-          borderRadius: 28,
-          height: 64,
-          paddingTop: 10,
-          paddingBottom: 10,
-          // Refined shadow system
-          boxShadow: isDark ? '0 12px 28px rgba(0,0,0,0.5)' : '0 12px 28px rgba(26,26,46,0.14)',
-          elevation: 20,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.glassBorder,
+          height: 50 + insets.bottom,
+          paddingBottom: insets.bottom,
+          paddingTop: 4,
         },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
       }}
     >
-      {TAB_CONFIG.map(({ name, icon, iconOut, label }) => (
+      {TAB_CONFIG.map(({ name, icon, label }) => (
         <Tabs.Screen
           key={name}
           name={name}
           options={{
             tabBarIcon: ({ focused }) => (
-              <TabIcon
-                name={focused ? icon : iconOut}
-                focused={focused}
-                colors={colors}
-                label={label}
-              />
+              <View style={styles.tabItem}>
+                <Ionicons
+                  name={focused ? icon : `${icon}-outline` as any}
+                  size={22}
+                  color={focused ? colors.primary : colors.textMuted}
+                />
+                <Text style={[
+                  styles.tabLabel,
+                  { color: focused ? colors.primary : colors.textMuted }
+                ]}>
+                  {label}
+                </Text>
+              </View>
             ),
           }}
         />
@@ -81,19 +63,14 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  iconWrapper: {
-    width: 46,
-    height: 44,
-    borderRadius: 15,
+  tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: 1,
+    width: 56,
   },
-  activeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    position: 'absolute',
-    bottom: 5,
+  tabLabel: {
+    fontSize: 9,
+    fontWeight: '600',
   },
 })

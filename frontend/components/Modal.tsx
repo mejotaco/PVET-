@@ -1,6 +1,7 @@
 import React from 'react'
 import { Modal as RNModal, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
-import { COLORS, RADIUS } from '../constants/theme'
+import { RADIUS } from '../constants/theme'
+import { useTheme } from '../hooks/useTheme'
 
 interface ModalProps {
   isOpen: boolean
@@ -10,14 +11,16 @@ interface ModalProps {
 }
 
 export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+  const { colors, isDark } = useTheme()
+
   return (
     <RNModal visible={isOpen} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} style={styles.container} onPress={() => {}}>
+        <TouchableOpacity activeOpacity={1} style={[styles.container, { backgroundColor: isDark ? '#1E2535' : '#FFFFFF', borderColor: colors.glassBorder }]} onPress={() => {}}>
           <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeText}>✕</Text>
+            <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}>
+              <Text style={[styles.closeText, { color: colors.textSecondary }]}>✕</Text>
             </TouchableOpacity>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
@@ -38,9 +41,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   container: {
-    backgroundColor: COLORS.navySoft,
     borderWidth: 1,
-    borderColor: COLORS.glassBorder,
     borderRadius: RADIUS.lg,
     padding: 24,
     width: '100%',
@@ -57,13 +58,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.textPrimary,
     flex: 1,
   },
   closeBtn: {
-    backgroundColor: COLORS.glass,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
     borderRadius: 8,
     width: 32,
     height: 32,
@@ -71,7 +68,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeText: {
-    color: COLORS.textSecondary,
     fontSize: 16,
   },
 })

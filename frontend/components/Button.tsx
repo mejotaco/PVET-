@@ -1,19 +1,18 @@
 import React from 'react'
-import { StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle } from 'react-native'
+import { StyleSheet, Text, TextStyle, TouchableOpacity, ViewStyle, ActivityIndicator } from 'react-native'
 import { RADIUS } from '../constants/theme'
 import { useTheme } from '../hooks/useTheme'
 
 interface ButtonProps {
-  children: string
+  children: React.ReactNode
   onPress?: () => void
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
   size?: 'sm' | 'md' | 'lg'
-  icon?: string
   disabled?: boolean
   style?: ViewStyle
 }
 
-export default function Button({ children, onPress, variant = 'primary', size = 'md', icon, disabled, style }: ButtonProps) {
+export default function Button({ children, onPress, variant = 'primary', size = 'md', disabled, style }: ButtonProps) {
   const { colors, isDark } = useTheme()
 
   const variantStyles: Record<string, ViewStyle> = {
@@ -28,9 +27,9 @@ export default function Button({ children, onPress, variant = 'primary', size = 
       borderColor: colors.glassBorder,
     },
     danger: {
-      backgroundColor: 'transparent',
+      backgroundColor: '#FF6B6B15',
       borderWidth: 1,
-      borderColor: colors.coral,
+      borderColor: '#FF6B6B40',
     },
     ghost: {
       backgroundColor: 'transparent',
@@ -40,7 +39,7 @@ export default function Button({ children, onPress, variant = 'primary', size = 
   const textColors: Record<string, string> = {
     primary: '#FFFFFF',
     secondary: colors.textPrimary,
-    danger: colors.coral,
+    danger: '#FF6B6B',
     ghost: colors.textSecondary,
   }
 
@@ -66,12 +65,16 @@ export default function Button({ children, onPress, variant = 'primary', size = 
         style,
       ]}
     >
-      <Text style={[
-        styles.text,
-        { color: textColors[variant], fontSize: textSizes[size] } as TextStyle,
-      ]}>
-        {icon ? `${icon}  ` : ''}{children}
-      </Text>
+      {typeof children === 'string' ? (
+        <Text style={[
+          styles.text,
+          { color: textColors[variant], fontSize: textSizes[size] } as TextStyle,
+        ]}>
+          {children}
+        </Text>
+      ) : (
+        children
+      )}
     </TouchableOpacity>
   )
 }

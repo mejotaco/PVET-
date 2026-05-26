@@ -4,7 +4,8 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import Button from '../../components/Button'
 import { FInput, FSelect, FTextarea } from '../../components/FormField'
 import Modal from '../../components/Modal'
-import { RADIUS, SPECIES_EMOJI } from '../../constants/theme'
+import { RADIUS, SPECIES_EMOJI, SERVICE_COLORS } from '../../constants/theme'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useApp } from '../../context/AppContext'
 import { useTheme } from '../../hooks/useTheme'
 
@@ -40,6 +41,7 @@ const SERVICE_ICON: Record<string, any> = {
 export default function AppointmentsScreen() {
   const { pets, appointments, addAppointment, cancelAppointment } = useApp()
   const { colors } = useTheme()
+  const insets = useSafeAreaInsets()
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState<any>(EA)
   const [filter, setFilter] = useState('all')
@@ -67,12 +69,11 @@ export default function AppointmentsScreen() {
 
   const upcomingCount  = appointments.filter((a: any) => a.status === 'scheduled' && a.date >= today).length
   const completedCount = appointments.filter((a: any) => a.status === 'completed').length
+  const totalCount     = appointments.length
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <View style={[styles.header, { borderBottomColor: colors.glassBorder }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: colors.glassBorder }]}>
         <View>
           <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Citas</Text>
           <Text style={[styles.headerSub, { color: colors.textMuted }]}>
@@ -88,16 +89,14 @@ export default function AppointmentsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Mini stats ─────────────────────────────────────────────────────── */}
       <View style={[styles.miniStats, { borderBottomColor: colors.glassBorder }]}>
-        <MiniStat value={appointments.length} label="Total" color={colors.textSecondary} colors={colors} />
+        <MiniStat value={totalCount} label="Total" color={colors.textSecondary} colors={colors} />
         <View style={[styles.miniDivider, { backgroundColor: colors.glassBorder }]} />
         <MiniStat value={upcomingCount} label="Próximas" color={colors.primary} colors={colors} />
         <View style={[styles.miniDivider, { backgroundColor: colors.glassBorder }]} />
         <MiniStat value={completedCount} label="Completadas" color={colors.success} colors={colors} />
       </View>
 
-      {/* ── Filter chips ───────────────────────────────────────────────────── */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -126,7 +125,6 @@ export default function AppointmentsScreen() {
         })}
       </ScrollView>
 
-      {/* ── List ───────────────────────────────────────────────────────────── */}
       <ScrollView
         style={{ flex: 1, paddingHorizontal: 16 }}
         showsVerticalScrollIndicator={false}
@@ -154,7 +152,7 @@ export default function AppointmentsScreen() {
           const st     = STATUS[appt.status] || STATUS.scheduled
           const isPast = appt.date < today
           const d      = appt.date ? new Date(appt.date + 'T00:00') : null
-          const accent = pet?.colorTheme || colors.primary
+          const accent = pet?.colorTheme || SERVICE_COLORS[appt.service] || colors.primary
           const serviceIcon = SERVICE_ICON[appt.service] || 'medical-outline'
 
           return (
@@ -162,7 +160,6 @@ export default function AppointmentsScreen() {
               <View style={[styles.apptStripe, { backgroundColor: isPast ? colors.glassBorder : accent }]} />
 
               <View style={styles.apptBody}>
-                {/* Date column */}
                 <View style={[styles.dateCol, {
                   backgroundColor: isPast ? colors.glass : accent + '15',
                   borderColor: isPast ? colors.glassBorder : accent + '30',
@@ -178,7 +175,6 @@ export default function AppointmentsScreen() {
                   </Text>
                 </View>
 
-                {/* Info */}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <View style={styles.apptTop}>
                     <View style={[styles.serviceIconBox, { backgroundColor: isPast ? colors.glass : accent + '15' }]}>
@@ -210,7 +206,6 @@ export default function AppointmentsScreen() {
                   ) : null}
                 </View>
 
-                {/* Status badge */}
                 <View style={styles.apptRight}>
                   <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
                     <View style={[styles.statusDot, { backgroundColor: st.dot }]} />
@@ -238,7 +233,6 @@ export default function AppointmentsScreen() {
         })}
       </ScrollView>
 
-      {/* ── New appointment modal ───────────────────────────────────────────── */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nueva Cita">
         {pets.length === 0 ? (
           <View style={{ alignItems: 'center', padding: 32, gap: 12 }}>
@@ -256,7 +250,7 @@ export default function AppointmentsScreen() {
             <FSelect label="Tipo de servicio" required value={form.service} options={SERVICES_OPTS} onChange={v => setForm((p: any) => ({ ...p, service: v }))} />
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <FInput label="Fecha" required placeholder={today} {...f('date')} />
+                <FInput label="Fecha" required placeholder="YYYY-MM-DD" {...f('date')} />
               </View>
               <View style={{ width: 12 }} />
               <View style={{ flex: 1 }}>
@@ -302,7 +296,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 14, borderBottomWidth: 1,
+    paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1,
   },
   headerTitle: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
   headerSub:   { fontSize: 12, marginTop: 3 },
