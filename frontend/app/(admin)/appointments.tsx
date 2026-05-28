@@ -7,7 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { RADIUS } from '../../constants/theme'
 import { useTheme } from '../../hooks/useTheme'
-import { api } from '../../context/api'
+import * as db from '../../context/db'
 
 interface Appointment {
   id: number; petId: number; service: string; date: string; time: string
@@ -36,7 +36,7 @@ export default function AdminAppointments() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [a, p] = await Promise.all([api.getAppointments(), api.getPets()])
+      const [a, p] = await Promise.all([db.getAppointments(), db.getPets()])
       setAppts(a)
       setPets(p)
     } catch { Alert.alert('Error', 'No se pudieron cargar los datos') }
@@ -82,9 +82,9 @@ export default function AdminAppointments() {
         status: editing ? editing.status : 'scheduled', notes: form.notes.trim() || null,
       }
       if (editing) {
-        await api.updateAppointment(editing.id, payload)
+        await db.updateAppointment(editing.id, payload)
       } else {
-        await api.createAppointment(payload)
+        await db.createAppointment(payload)
       }
       setShowModal(false)
       loadData()
@@ -96,7 +96,7 @@ export default function AdminAppointments() {
     Alert.alert('Cambiar estado', `¿Marcar como "${STATUS_LABELS[status]}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sí', onPress: async () => {
-        try { await api.updateAppointment(appt.id, { status }); loadData() }
+        try { await db.updateAppointment(appt.id, { status }); loadData() }
         catch (e: any) { Alert.alert('Error', e?.message) }
       }},
     ])
@@ -106,7 +106,7 @@ export default function AdminAppointments() {
     Alert.alert('Eliminar cita', '¿Eliminar esta cita? No se puede deshacer.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try { await api.deleteAppointment(appt.id); loadData() }
+        try { await db.deleteAppointment(appt.id); loadData() }
         catch (e: any) { Alert.alert('Error', e?.message) }
       }},
     ])

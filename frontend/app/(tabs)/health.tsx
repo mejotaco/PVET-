@@ -8,7 +8,6 @@ import Modal from '../../components/Modal'
 import { RADIUS, SPECIES_EMOJI } from '../../constants/theme'
 import { useApp } from '../../context/AppContext'
 import { useTheme } from '../../hooks/useTheme'
-import { api } from '../../context/api'
 
 const VT_OPTS = ['Rabia','Parvovirus','Moquillo','Hepatitis Canina','Leptospirosis','Bordetella','Leucemia Felina','Herpesvirus Felino','Calicivirus Felino','Panleucopenia','Otra']
   .map(v => ({ label: v, value: v }))
@@ -28,7 +27,7 @@ const EV = { type: 'Rabia', date: '', nextDate: '', vet: '', batch: '', notes: '
 const ED = { name: '', type: 'Análisis', date: '', vet: '', notes: '' }
 
 export default function HealthScreen() {
-  const { pets } = useApp()
+  const { pets, getVaccinations, createVaccination, getHealthRecords, createHealthRecord } = useApp()
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
   const [sel, setSel] = useState<number | null>(null)
@@ -51,8 +50,8 @@ export default function HealthScreen() {
     setLoading(true)
     try {
       const [vacs, docs] = await Promise.all([
-        api.getVaccinations(petId),
-        api.getHealthRecordsByPet(petId)
+        getVaccinations(petId),
+        getHealthRecords(petId)
       ])
       setPetVaccines(vacs)
       setPetDocs(docs)
@@ -70,7 +69,7 @@ export default function HealthScreen() {
     if (!vf.type || !vf.date || !pet) return
     const petId = pet.id
     try {
-      await api.createVaccination({
+      await createVaccination({
         petId,
         name: vf.type,
         dateApplied: vf.date,
@@ -90,7 +89,7 @@ export default function HealthScreen() {
     if (!df.name || !df.date || !pet) return
     const petId = pet.id
     try {
-      await api.createHealthRecord({
+      await createHealthRecord({
         petId,
         date: df.date,
         type: df.type,

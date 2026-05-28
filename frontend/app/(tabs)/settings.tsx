@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../hooks/useTheme'
-import { api } from '../../context/api'
+import * as db from '../../context/db'
 
 function SettingRow({ iconName, iconBg, title, desc, colors, children, last }: any) {
   return (
@@ -41,7 +41,7 @@ function GroupLabel({ text, colors }: any) {
 }
 
 export default function SettingsScreen() {
-  const { notifications, toggleNotifications, pets, appointments, serverUrl, themeMode, setThemeMode } = useApp()
+  const { notifications, toggleNotifications, pets, appointments, themeMode, setThemeMode, updateProfile } = useApp()
   const { user, logout } = useAuth()
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
@@ -49,7 +49,6 @@ export default function SettingsScreen() {
   const [push, setPush]     = useState(false)
   const [vacuna, setVacuna] = useState(false)
   const [saved, setSaved]   = useState(false)
-  const [connecting, setConnecting] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [profileName, setProfileName] = useState('')
   const [profileEmail, setProfileEmail] = useState('')
@@ -81,10 +80,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               for (const pet of pets) {
-                await api.deletePet(pet.id)
-              }
-              for (const appt of appointments) {
-                await api.deleteAppointment(appt.id)
+                await db.deletePet(pet.id)
               }
               await AsyncStorage.clear()
               Alert.alert('Datos eliminados', 'Todos los datos han sido eliminados. Reinicia la app para comenzar de nuevo.')
@@ -117,24 +113,6 @@ export default function SettingsScreen() {
       if (e?.message !== 'User did not share') {
         Alert.alert('Error', 'No se pudieron exportar los datos')
       }
-    }
-  }
-
-  const testConnection = async () => {
-    setConnecting(true)
-    try {
-      await api.clearCachedUrl()
-      const url = await api.discover()
-      const connected = await api.isConnected()
-      if (connected) {
-        Alert.alert('Conectado', `Servidor encontrado en:\n${url}`)
-      } else {
-        Alert.alert('Sin conexión', 'No se pudo conectar al servidor. Verifica que el backend esté corriendo.')
-      }
-    } catch (e: any) {
-      Alert.alert('Error', e?.message || 'Error de conexión')
-    } finally {
-      setConnecting(false)
     }
   }
 
@@ -239,17 +217,6 @@ export default function SettingsScreen() {
               <Text style={[styles.actionChipText, { color: '#FF6B6B' }]}>Limpiar</Text>
             </TouchableOpacity>
           </SettingRow>
-          <SettingRow iconName="server-outline" iconBg={colors.primary + '15'} title="Probar conexión" desc={serverUrl || 'No conectado'} colors={colors} last>
-            <TouchableOpacity
-              onPress={testConnection}
-              disabled={connecting}
-              style={[styles.actionChip, { backgroundColor: colors.success + '15', borderColor: colors.success + '30' }]}
-            >
-              <Text style={[styles.actionChipText, { color: connecting ? colors.textMuted : colors.success }]}>
-                {connecting ? '...' : 'Probar'}
-              </Text>
-            </TouchableOpacity>
-          </SettingRow>
         </SettingCard>
 
         <GroupLabel text="ACERCA DE" colors={colors} />
@@ -344,7 +311,7 @@ export default function SettingsScreen() {
                   }
                   setSavingProfile(true)
                   try {
-                    await api.updateProfile(user!.id, { name: profileName.trim(), email: profileEmail.trim() || undefined, phone: profilePhone.trim() || undefined })
+                    await updateProfile({ name: profileName.trim(), email: profileEmail.trim() || undefined, phone: profilePhone.trim() || undefined })
                     setShowProfileModal(false)
                   } catch (e: any) {
                     Alert.alert('Error', e?.message || 'No se pudo guardar')

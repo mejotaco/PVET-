@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { RADIUS } from '../../constants/theme'
 import { useTheme } from '../../hooks/useTheme'
-import { api } from '../../context/api'
+import * as db from '../../context/db'
 
 interface Pet { id: number; name: string; species: string | null }
 interface HealthRecord { id: number; petId: number; date: string; type: string; description: string; vetName: string | null }
@@ -24,7 +24,7 @@ export default function AdminHealth() {
   useEffect(() => {
     (async () => {
       try {
-        const p = await api.getPets()
+        const p = await db.getPets()
         setPets(p)
         if (p.length > 0) setSelectedPet(p[0].id)
       } catch {} finally { setLoading(false) }
@@ -36,8 +36,8 @@ export default function AdminHealth() {
     (async () => {
       try {
         const [r, v] = await Promise.all([
-          api.getHealthRecordsByPet(selectedPet),
-          api.getVaccinations(selectedPet),
+          db.getHealthRecords(selectedPet),
+          db.getVaccinations(selectedPet),
         ])
         setRecords(r)
         setVaccines(v)

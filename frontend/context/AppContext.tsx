@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { api } from './api'
+import * as db from './db'
 import { useAuth } from './AuthContext'
 
 interface Pet {
   id: number
+  ownerId: number
   name: string
   species: string | null
   breed: string | null
@@ -32,9 +33,10 @@ interface Vaccination {
 interface Appointment {
   id: number
   petId: number
+  userId: number
   date: string
   time: string
-  type: string | null
+  service: string | null
   vetName: string | null
   location: string | null
   status: string
@@ -42,56 +44,45 @@ interface Appointment {
   createdAt: string
 }
 
-interface UserProfile {
-  id: number
-  name: string
-  email: string | null
-  role: 'owner' | 'vet'
-  phone: string | null
-  notes: string | null
-}
-
 export type ThemeMode = 'system' | 'light' | 'dark'
 
 interface AppContextValue {
   loaded: boolean
-  serverUrl: string | null
   pets: Pet[]
   petVaccines: Record<number, Vaccination[]>
-  addPet: (pet: Omit<Pet, 'id' | 'createdAt'>) => Promise<void>
-  updatePet: (id: number, data: Partial<Pet>) => Promise<void>
+  addPet: (data: any) => Promise<void>
+  updatePet: (id: number, data: any) => Promise<void>
   deletePet: (id: number) => Promise<void>
   appointments: Appointment[]
-  addAppointment: (a: Omit<Appointment, 'id' | 'createdAt'>) => Promise<void>
+  addAppointment: (data: any) => Promise<void>
   cancelAppointment: (id: number) => Promise<void>
   notifications: boolean
   toggleNotifications: () => void
   refresh: () => Promise<void>
-  user: UserProfile | null
-  updateProfile: (data: { name?: string; email?: string; phone?: string; notes?: string }) => Promise<void>
   themeMode: ThemeMode
   setThemeMode: (mode: ThemeMode) => void
+  getVaccinations: (petId: number) => Promise<Vaccination[]>
+  createVaccination: (data: any) => Promise<void>
+  getHealthRecords: (petId: number) => Promise<any[]>
+  createHealthRecord: (data: any) => Promise<void>
+  updateProfile: (data: any) => Promise<void>
 }
 
 const AppCtx = createContext<AppContextValue | null>(null)
 const THEME_STORAGE_KEY = 'pvet_theme_mode'
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading: authLoading } = useAuth()
+  const { isAuthenticated, loading: authLoading, user: authUser } = useAuth()
   const [pets, setPets] = useState<Pet[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [petVaccines, setPetVaccines] = useState<Record<number, Vaccination[]>>({})
   const [notifications, setNotifications] = useState(true)
   const [loaded, setLoaded] = useState(false)
-  const [serverUrl, setServerUrl] = useState<string | null>(null)
-  const [user, setUser] = useState<UserProfile | null>(null)
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system')
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_STORAGE_KEY).then(val => {
-      if (val === 'light' || val === 'dark' || val === 'system') {
-        setThemeModeState(val)
-      }
+      if (val === 'light' || val === 'dark' || val === 'system') setThemeModeState(val)
     }).catch(() => {})
   }, [])
 
@@ -102,28 +93,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const loadAllData = useCallback(async () => {
     try {
-      const [fetchedPets, fetchedAppts] = await Promise.all([
-        api.getPets(),
-        api.getAppointments(),
-      ])
+      if (!authUser) return
+      const isVet = authUser.role === 'vet'
+      let fetchedPets: any[]
+      let fetchedAppts: any[]
+      if (isVet) {
+        fetchedPets = await db.getPets()
+        fetchedAppts = await db.getAppointments()
+      } else {
+        fetchedPets = await db.getPets(authUser.id)
+        fetchedAppts = await db.getAppointments(authUser.id)
+      }
       setPets(fetchedPets)
       setAppointments(fetchedAppts)
 
       const vaccinesMap: Record<number, Vaccination[]> = {}
-      await Promise.all(fetchedPets.map(async (pet: Pet) => {
+      await Promise.all(fetchedPets.map(async (pet: any) => {
         try {
-          const vacs = await api.getVaccinations(pet.id)
+          const vacs = await db.getVaccinations(pet.id)
           vaccinesMap[pet.id] = vacs
-        } catch { }
+        } catch {}
       }))
       setPetVaccines(vaccinesMap)
 
       return true
     } catch (err) {
-      console.warn('[AppContext] Error al conectar:', err)
+      console.warn('[AppContext] Error al cargar datos:', err)
       return false
     }
-  }, [])
+  }, [authUser])
 
   useEffect(() => {
     if (authLoading) return
@@ -132,89 +130,70 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return
     }
     ;(async () => {
-      try {
-        const url = await api.discover()
-        setServerUrl(url)
-
-        await loadAllData()
-      } catch (err) {
-        console.warn('[AppContext] Error:', err)
-      } finally {
-        setLoaded(true)
-      }
+      await loadAllData()
+      setLoaded(true)
     })()
   }, [authLoading, isAuthenticated, loadAllData])
 
-  const refresh = async () => {
-    await loadAllData()
+  const refresh = async () => { await loadAllData() }
+
+  const addPet = async (data: any) => {
+    const newPet = await db.createPet({ ...data, ownerId: authUser?.id })
+    setPets(prev => [newPet, ...prev])
   }
 
-  const addPet = async (pet: Omit<Pet, 'id' | 'createdAt'>) => {
-    try {
-      const newPet = await api.createPet(pet)
-      setPets(prev => [newPet, ...prev])
-    } catch (err) {
-      console.warn('[AppContext] addPet error:', err)
-      throw err
-    }
-  }
-
-  const updatePet = async (id: number, data: Partial<Pet>) => {
-    try {
-      const updated = await api.updatePet(id, data)
-      setPets(prev => prev.map(p => (p.id === id ? { ...p, ...updated } : p)))
-    } catch (err) {
-      console.warn('[AppContext] updatePet error:', err)
-      throw err
-    }
+  const updatePet = async (id: number, data: any) => {
+    const updated = await db.updatePet(id, data)
+    setPets(prev => prev.map(p => (p.id === id ? { ...p, ...updated } : p)))
   }
 
   const deletePet = async (id: number) => {
-    try {
-      await api.deletePet(id)
-      setPets(prev => prev.filter(p => p.id !== id))
-      setPetVaccines(prev => { const n = { ...prev }; delete n[id]; return n })
-    } catch (err) {
-      console.warn('[AppContext] deletePet error:', err)
-      throw err
-    }
+    await db.deletePet(id)
+    setPets(prev => prev.filter(p => p.id !== id))
+    setPetVaccines(prev => { const n = { ...prev }; delete n[id]; return n })
   }
 
-  const addAppointment = async (a: Omit<Appointment, 'id' | 'createdAt'>) => {
-    try {
-      const newAppt = await api.createAppointment(a)
-      setAppointments(prev => [newAppt, ...prev])
-    } catch (err) {
-      console.warn('[AppContext] addAppointment error:', err)
-      throw err
-    }
+  const addAppointment = async (data: any) => {
+    const newAppt = await db.createAppointment({ ...data, userId: authUser?.id })
+    setAppointments(prev => [newAppt, ...prev])
   }
 
   const cancelAppointment = async (id: number) => {
-    try {
-      await api.cancelAppointment(id)
-      setAppointments(prev =>
-        prev.map(a => (a.id === id ? { ...a, status: 'cancelled' } : a))
-      )
-    } catch (err) {
-      console.warn('[AppContext] cancelAppointment error:', err)
-      throw err
-    }
+    await db.updateAppointment(id, { status: 'cancelled' })
+    setAppointments(prev =>
+      prev.map(a => (a.id === id ? { ...a, status: 'cancelled' } : a))
+    )
   }
 
   const toggleNotifications = () => setNotifications(v => !v)
 
-  const updateProfile = async (data: { name?: string; email?: string; phone?: string; notes?: string }) => {
-    if (!user) return
-    const updated = await api.updateProfile(user.id, data)
-    setUser(updated)
+  const getVaccinations = async (petId: number) => {
+    return db.getVaccinations(petId)
+  }
+
+  const createVaccination = async (data: any) => {
+    await db.createVaccination(data)
+    const vacs = await db.getVaccinations(data.petId)
+    setPetVaccines(prev => ({ ...prev, [data.petId]: vacs }))
+  }
+
+  const getHealthRecords = async (petId: number) => {
+    return db.getHealthRecords(petId)
+  }
+
+  const createHealthRecord = async (data: any) => {
+    await db.createHealthRecord(data)
+  }
+
+  const updateProfile = async (data: any) => {
+    if (!authUser) return
+    await db.updateUser(authUser.id, data)
   }
 
   return (
     <AppCtx.Provider
       value={{
         loaded,
-        serverUrl,
         pets,
         petVaccines,
         addPet,
@@ -226,10 +205,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         notifications,
         toggleNotifications,
         refresh,
-        user,
-        updateProfile,
         themeMode,
         setThemeMode,
+        getVaccinations,
+        createVaccination,
+        getHealthRecords,
+        createHealthRecord,
+        updateProfile,
       }}
     >
       {children}

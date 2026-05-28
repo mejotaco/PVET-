@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { api } from './api'
+import * as db from './db'
 
-const TOKEN_KEY = 'pvet_auth_token'
+const USER_KEY = 'pvet_local_user'
 
 interface AuthUser {
   id: number
@@ -16,7 +16,6 @@ interface AuthContextValue {
   isAuthenticated: boolean
   loading: boolean
   user: AuthUser | null
-  token: string | null
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
 }
@@ -24,51 +23,37 @@ interface AuthContextValue {
 const AuthCtx = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     ;(async () => {
       try {
-        const savedToken = await AsyncStorage.getItem(TOKEN_KEY)
-        if (savedToken) {
-          api.setToken(savedToken)
-          const me = await api.getMe()
-          setToken(savedToken)
-          setUser(me)
-        }
-      } catch {
-        await AsyncStorage.removeItem(TOKEN_KEY)
-        api.setToken(null)
-      } finally {
+        const saved = await AsyncStorage.getItem(USER_KEY)
+        if (saved) setUser(JSON.parse(saved))
+      } catch {} finally {
         setLoading(false)
       }
     })()
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    const res = await api.login(email, password)
-    api.setToken(res.token)
-    await AsyncStorage.setItem(TOKEN_KEY, res.token)
-    setToken(res.token)
-    setUser(res.user)
+    const u = await db.login(email, password)
+    await AsyncStorage.setItem(USER_KEY, JSON.stringify(u))
+    setUser(u)
   }, [])
 
   const logout = useCallback(async () => {
-    api.setToken(null)
-    await AsyncStorage.removeItem(TOKEN_KEY)
-    setToken(null)
+    await AsyncStorage.removeItem(USER_KEY)
     setUser(null)
   }, [])
 
   return (
     <AuthCtx.Provider
       value={{
-        isAuthenticated: !!token && !!user,
+        isAuthenticated: !!user,
         loading,
         user,
-        token,
         login,
         logout,
       }}

@@ -17,6 +17,7 @@
       }
     },
     "android": {
+      "package": "com.mejotaco.pvet",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -51,6 +52,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8f4e04a1-fcee-4d72-bf5c-56ddb42dac93"
+      }
+    },
+    "owner": "mejotaco"
   }
 }

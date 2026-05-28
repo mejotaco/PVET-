@@ -7,7 +7,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { RADIUS, SPECIES_EMOJI, PET_COLORS } from '../../constants/theme'
 import { useTheme } from '../../hooks/useTheme'
-import { api } from '../../context/api'
+import * as db from '../../context/db'
 
 interface Owner {
   id: number; name: string; email: string | null; phone: string | null
@@ -41,7 +41,7 @@ export default function AdminPets() {
   useEffect(() => {
     (async () => {
       try {
-        const o = await api.getOwners()
+        const o = await db.getOwners()
         setOwners(o)
       } catch {} finally { setLoading(false) }
     })()
@@ -52,7 +52,7 @@ export default function AdminPets() {
     (async () => {
       setLoadingPets(true)
       try {
-        const p = await api.getPetsByOwner(selectedOwner.id)
+        const p = await db.getPetsByOwner(selectedOwner.id)
         setPets(p)
       } catch {} finally { setLoadingPets(false) }
     })()
@@ -89,12 +89,12 @@ export default function AdminPets() {
         microchip: null, imageUri: null,
       }
       if (editing) {
-        await api.updatePet(editing.id, payload)
+        await db.updatePet(editing.id, payload)
       } else {
-        await api.createPet(payload)
+        await db.createPet(payload)
       }
       setShowModal(false)
-      const p = await api.getPetsByOwner(selectedOwner!.id)
+      const p = await db.getPetsByOwner(selectedOwner!.id)
       setPets(p)
     } catch (e: any) { Alert.alert('Error', e?.message || 'No se pudo guardar') }
     finally { setSaving(false) }
@@ -104,7 +104,7 @@ export default function AdminPets() {
     Alert.alert('Eliminar mascota', `¿Eliminar a ${pet.name}?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
-        try { await api.deletePet(pet.id); const p = await api.getPetsByOwner(selectedOwner!.id); setPets(p) }
+        try { await db.deletePet(pet.id); const p = await db.getPetsByOwner(selectedOwner!.id); setPets(p) }
         catch (e: any) { Alert.alert('Error', e?.message) }
       }},
     ])

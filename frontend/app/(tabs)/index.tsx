@@ -105,7 +105,7 @@ export default function HomeScreen() {
         <View style={[styles.loadingPaw, { backgroundColor: colors.primary + '15' }]}>
           <Ionicons name="paw" size={40} color={colors.primary} />
         </View>
-        <Text style={[styles.loadingText, { color: colors.textMuted }]}>Conectando con el servidor...</Text>
+        <Text style={[styles.loadingText, { color: colors.textMuted }]}>Cargando datos...</Text>
         <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 16 }} />
       </View>
     )

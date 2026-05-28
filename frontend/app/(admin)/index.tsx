@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { RADIUS } from '../../constants/theme'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../hooks/useTheme'
-import { api } from '../../context/api'
+import * as db from '../../context/db'
 
 interface AdminStats {
   counts: {
@@ -40,7 +40,7 @@ export default function AdminDashboard() {
   const loadStats = async () => {
     setLoading(true)
     try {
-      const data = await api.getAdminStats()
+      const data = await db.getAdminStats()
       setStats(data)
     } catch {
       setStats(null)
