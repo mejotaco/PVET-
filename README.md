@@ -18,6 +18,18 @@ pvet-app/
     └── ...
 ```
 
+## Usuarios de prueba
+
+El backend crea automáticamente estos usuarios al iniciar:
+
+| Rol | Nombre | Email | Contraseña |
+|-----|--------|-------|------------|
+| Dueño | Juan García | `juan@ejemplo.com` | `owner123` |
+| Dueño | Ana Martínez | `ana@ejemplo.com` | `owner123` |
+| Veterinario | Dr. María López | `vet@ejemplo.com` | `vet123` |
+
+Cada dueño ve **solo sus propias mascotas**. El veterinario accede al **panel admin** donde puede ver la lista de clientes y gestionar sus mascotas, citas y salud.
+
 ## Requisitos
 
 - **Node.js** >= 18
@@ -57,16 +69,21 @@ El backend crea automáticamente la base de datos `pvet_db` y sus tablas.
 
 ### Endpoints
 
+> Todos los endpoints (excepto `/api/info` y `/api/auth/login`) requieren token JWT en header `Authorization: Bearer <token>`.
+
 | Método | Ruta | Descripción |
 |--------|------|-------------|
 | GET | `/api/info` | Info del servidor (IP, puerto) |
-| **Mascotas** | | |
-| GET | `/api/pets` | Listar todas las mascotas |
+| **Auth** | | |
+| POST | `/api/auth/login` | Iniciar sesión (email + password) → retorna token JWT |
+| GET | `/api/auth/me` | Obtener perfil del usuario autenticado |
+| **Mascotas** (filtradas por dueño si el rol es `owner`) | | |
+| GET | `/api/pets` | Listar mascotas |
 | POST | `/api/pets` | Crear mascota |
 | PUT | `/api/pets/:id` | Actualizar mascota |
 | DELETE | `/api/pets/:id` | Eliminar mascota |
 | **Citas** | | |
-| GET | `/api/appointments` | Listar todas las citas |
+| GET | `/api/appointments` | Listar citas |
 | GET | `/api/appointments/pet/:petId` | Citas de una mascota |
 | POST | `/api/appointments` | Crear cita |
 | PATCH | `/api/appointments/:id` | Actualizar cita |
@@ -83,6 +100,11 @@ El backend crea automáticamente la base de datos `pvet_db` y sus tablas.
 | GET | `/api/medications/pet/:petId` | Medicamentos de una mascota |
 | POST | `/api/medications` | Registrar medicamento |
 | PATCH | `/api/medications/:id/toggle` | Activar/desactivar medicamento |
+| **Admin** (solo rol `vet`) | | |
+| GET | `/api/admin/stats` | Estadísticas del sistema |
+| GET | `/api/users/owners` | Listar todos los clientes (dueños) |
+| GET | `/api/users/:id/pets` | Mascotas de un cliente específico |
+| GET | `/api/users/:id/appointments` | Citas de un cliente específico |
 
 ## Frontend
 

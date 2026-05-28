@@ -4,7 +4,9 @@ import { StatusBar } from 'expo-status-bar'
 import { Animated, Image, ImageBackground, View } from 'react-native'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AppProvider, useApp } from '../context/AppContext'
+import { AuthProvider, useAuth } from '../context/AuthContext'
 import { useTheme } from '../hooks/useTheme'
+import LoginScreen from './login'
 
 function Splash({ isDark }: { isDark: boolean }) {
   return (
@@ -33,10 +35,10 @@ function Splash({ isDark }: { isDark: boolean }) {
 function RootContent() {
   const { colors, isDark } = useTheme()
   const { loaded } = useApp()
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [minTime, setMinTime] = useState(false)
   const [showApp, setShowApp] = useState(false)
   const splashOpacity = useRef(new Animated.Value(1)).current
-  const contentOpacity = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
     const timer = setTimeout(() => setMinTime(true), 2000)
@@ -44,13 +46,12 @@ function RootContent() {
   }, [])
 
   useEffect(() => {
-    if (loaded && minTime) {
-      Animated.parallel([
-        Animated.timing(splashOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
-        Animated.timing(contentOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      ]).start(() => setShowApp(true))
+    if (loaded && minTime && !authLoading) {
+      Animated.timing(splashOpacity, {
+        toValue: 0, duration: 400, useNativeDriver: true,
+      }).start(() => setShowApp(true))
     }
-  }, [loaded, minTime])
+  }, [loaded, minTime, authLoading])
 
   if (!showApp) {
     return (
@@ -60,22 +61,34 @@ function RootContent() {
     )
   }
 
-  return (
-    <Animated.View style={{ flex: 1, opacity: contentOpacity }}>
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
-        <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.background} />
-        <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />
+  if (!isAuthenticated) {
+    return (
+      <View style={{ flex: 1 }}>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <LoginScreen />
       </View>
-    </Animated.View>
+    )
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.background} />
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(admin)" />
+      </Stack>
+    </View>
   )
 }
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <RootContent />
-      </AppProvider>
+      <AuthProvider>
+        <AppProvider>
+          <RootContent />
+        </AppProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   )
 }

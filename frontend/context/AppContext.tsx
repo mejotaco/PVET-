@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { api } from './api'
+import { useAuth } from './AuthContext'
 
 interface Pet {
   id: number
@@ -45,6 +46,7 @@ interface UserProfile {
   id: number
   name: string
   email: string | null
+  role: 'owner' | 'vet'
   phone: string | null
   notes: string | null
 }
@@ -66,7 +68,7 @@ interface AppContextValue {
   toggleNotifications: () => void
   refresh: () => Promise<void>
   user: UserProfile | null
-  updateProfile: (data: Partial<UserProfile>) => Promise<void>
+  updateProfile: (data: { name?: string; email?: string; phone?: string; notes?: string }) => Promise<void>
   themeMode: ThemeMode
   setThemeMode: (mode: ThemeMode) => void
 }
@@ -75,6 +77,7 @@ const AppCtx = createContext<AppContextValue | null>(null)
 const THEME_STORAGE_KEY = 'pvet_theme_mode'
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading: authLoading } = useAuth()
   const [pets, setPets] = useState<Pet[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [petVaccines, setPetVaccines] = useState<Record<number, Vaccination[]>>({})
@@ -123,13 +126,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (authLoading) return
+    if (!isAuthenticated) {
+      setLoaded(true)
+      return
+    }
     ;(async () => {
       try {
         const url = await api.discover()
         setServerUrl(url)
-
-        const profile = await api.getProfile()
-        if (profile) setUser(profile)
 
         await loadAllData()
       } catch (err) {
@@ -138,7 +143,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setLoaded(true)
       }
     })()
-  }, [loadAllData])
+  }, [authLoading, isAuthenticated, loadAllData])
 
   const refresh = async () => {
     await loadAllData()
@@ -199,7 +204,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const toggleNotifications = () => setNotifications(v => !v)
 
-  const updateProfile = async (data: Partial<UserProfile>) => {
+  const updateProfile = async (data: { name?: string; email?: string; phone?: string; notes?: string }) => {
     if (!user) return
     const updated = await api.updateProfile(user.id, data)
     setUser(updated)

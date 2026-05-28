@@ -27,6 +27,11 @@ interface ServerInfo {
 
 class APIClient {
   private baseUrl: string | null = null
+  private token: string | null = null
+
+  setToken(token: string | null): void {
+    this.token = token
+  }
 
   private buildDiscoveryUrls(): string[] {
     const urls: string[] = [
@@ -174,8 +179,10 @@ class APIClient {
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const base = await this.discover()
     const url = `${base}${path}`
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`
     const res = await this.fetchWithTimeout(url, {
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       ...options,
     })
     if (!res.ok) {
@@ -290,6 +297,37 @@ class APIClient {
 
   async toggleMedication(id: number) {
     return this.request<any>(`/api/medications/${id}/toggle`, { method: 'PATCH' })
+  }
+
+  // ─── Auth ──────────────────────────────────────────────────
+
+  async login(email: string, password: string) {
+    return this.request<{ token: string; user: any }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    })
+  }
+
+  async getMe() {
+    return this.request<any>('/api/auth/me')
+  }
+
+  // ─── Admin ─────────────────────────────────────────────────
+
+  async getAdminStats() {
+    return this.request<any>('/api/admin/stats')
+  }
+
+  async getOwners() {
+    return this.request<any[]>('/api/users/owners')
+  }
+
+  async getPetsByOwner(ownerId: number) {
+    return this.request<any[]>(`/api/users/${ownerId}/pets`)
+  }
+
+  async getAppointmentsByOwner(ownerId: number) {
+    return this.request<any[]>(`/api/users/${ownerId}/appointments`)
   }
 
   // ─── Perfil de usuario ─────────────────────────────────────

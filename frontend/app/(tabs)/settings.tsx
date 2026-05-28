@@ -6,6 +6,7 @@ import Button from '../../components/Button'
 import { RADIUS } from '../../constants/theme'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useApp } from '../../context/AppContext'
+import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../hooks/useTheme'
 import { api } from '../../context/api'
 
@@ -40,7 +41,8 @@ function GroupLabel({ text, colors }: any) {
 }
 
 export default function SettingsScreen() {
-  const { notifications, toggleNotifications, pets, appointments, serverUrl, user, updateProfile, themeMode, setThemeMode } = useApp()
+  const { notifications, toggleNotifications, pets, appointments, serverUrl, themeMode, setThemeMode } = useApp()
+  const { user, logout } = useAuth()
   const { colors } = useTheme()
   const insets = useSafeAreaInsets()
   const [email, setEmail]   = useState(true)
@@ -136,6 +138,13 @@ export default function SettingsScreen() {
     }
   }
 
+  const confirmLogout = () => {
+    Alert.alert('Cerrar sesión', '¿Estás seguro de que deseas cerrar sesión?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Cerrar sesión', style: 'destructive', onPress: logout },
+    ])
+  }
+
   const swColors = { false: colors.glassBorder, true: colors.primary }
   const upcomingAppts = appointments.filter((a: any) => {
     const today = new Date().toISOString().split('T')[0]
@@ -206,6 +215,14 @@ export default function SettingsScreen() {
 
         <GroupLabel text="CUENTA" colors={colors} />
         <SettingCard colors={colors}>
+          <SettingRow iconName="log-out-outline" iconBg="#FF6B6B15" title="Cerrar sesión" desc="Salir de tu cuenta" colors={colors}>
+            <TouchableOpacity
+              onPress={confirmLogout}
+              style={[styles.actionChip, { backgroundColor: '#FF6B6B15', borderColor: '#FF6B6B30' }]}
+            >
+              <Text style={[styles.actionChipText, { color: '#FF6B6B' }]}>Salir</Text>
+            </TouchableOpacity>
+          </SettingRow>
           <SettingRow iconName="cloud-upload-outline" iconBg={colors.primary + '15'} title="Exportar datos" desc="Comparte un respaldo de tu información" colors={colors}>
             <TouchableOpacity
               onPress={exportData}
@@ -327,7 +344,7 @@ export default function SettingsScreen() {
                   }
                   setSavingProfile(true)
                   try {
-                    await updateProfile({ name: profileName.trim(), email: profileEmail.trim() || null, phone: profilePhone.trim() || null })
+                    await api.updateProfile(user!.id, { name: profileName.trim(), email: profileEmail.trim() || undefined, phone: profilePhone.trim() || undefined })
                     setShowProfileModal(false)
                   } catch (e: any) {
                     Alert.alert('Error', e?.message || 'No se pudo guardar')
